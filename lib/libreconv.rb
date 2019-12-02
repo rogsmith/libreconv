@@ -49,6 +49,7 @@ module Libreconv
 
       Dir.mktmpdir do |target_path|
         command = build_command(tmp_pipe_path, target_path)
+        puts command
         target_tmp_file = execute_command(command, target_path)
 
         FileUtils.cp target_tmp_file, @target
