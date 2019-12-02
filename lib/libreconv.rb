@@ -58,8 +58,7 @@ module Libreconv
       FileUtils.rm_rf tmp_pipe_path if File.exist?(tmp_pipe_path)
     end
 
-    private
-
+    
     # @param [Array<String>] command
     # @param [String] target_path
     # @return [String]
