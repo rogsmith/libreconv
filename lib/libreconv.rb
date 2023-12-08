@@ -103,7 +103,10 @@ module Libreconv
           escaped_source,
           '--outdir', target_path
         ]
-      command_parts.unshift("#{@timeout_command} #{@timeout_seconds}s") if @timeout_command
+      if @timeout_command && @timeout_seconds
+        command_parts.unshift("#{@timeout_seconds}s")
+        command_parts.unshift(@timeout_command)
+      end
       command_parts
     end
 
