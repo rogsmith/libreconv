@@ -15,6 +15,24 @@ RSpec.describe Libreconv::Converter do
     end
   end
 
+  describe "timeout" do
+    describe "#build_command" do
+      it 'builds the command with a timeout' do
+        # Just faking that the command is present here
+        converter = described_class.new fixture_file, '/target', cmd = fixture_path('soffice'), nil, timeout_seconds: 42
+        expect(converter.build_command("/tmp/tmp", "tmp/target")[0]).to end_with "timeout"
+        expect(converter.build_command("/tmp/tmp", "tmp/target")[1]).to eq "42s"
+      end
+
+
+      it 'builds the command without a timeout' do
+        # Just faking that the command is present here
+        converter = described_class.new fixture_file, '/target', cmd = fixture_path('soffice'), nil
+        expect(converter.build_command("/tmp/tmp", "tmp/target").first).to eq cmd
+      end
+    end
+  end
+
   describe ':soffice_command' do
     it 'returns the user specified command path' do
       # Just faking that the command is present here

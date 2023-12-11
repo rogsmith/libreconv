@@ -19,8 +19,8 @@ module Libreconv
   # @raise [URI::Error]             When URI parsing error.
   # @raise [Net::ProtocolError]     If source URL checking failed.
   # @raise [ConversionFailedError]  When soffice command execution error.
-  def self.convert(source, target, soffice_command = nil, convert_to = nil)
-    Converter.new(source, target, soffice_command, convert_to).convert
+  def self.convert(source, target, soffice_command = nil, convert_to = nil, timeout_seconds: nil)
+    Converter.new(source, target, soffice_command, convert_to, timeout_seconds: timeout_seconds).convert
   end
 
   class Converter
@@ -31,14 +31,20 @@ module Libreconv
     # @param [String] target          Target file path.
     # @param [String] soffice_command Path to the soffice binary.
     # @param [String] convert_to      Format to convert to (default: 'pdf').
+    # @param [Integer] timeout_seconds      Timeout in seconds (default: 180).
     # @raise [IOError]                If invalid source file/URL or soffice command not found.
     # @raise [URI::Error]             When URI parsing error.
     # @raise [Net::ProtocolError]     If source URL checking failed.
-    def initialize(source, target, soffice_command = nil, convert_to = nil)
+    def initialize(source, target, soffice_command = nil, convert_to = nil, timeout_seconds: nil)
       @source = check_source_type(source)
       @target = target
       @soffice_command = soffice_command || which('soffice') || which('soffice.bin')
       @convert_to = convert_to || 'pdf'
+      if timeout_seconds
+        puts "Expected timeout_seconds to be an Integer, but got #{timeout_seconds.class}. Ignoring." unless timeout_seconds.is_a?(Integer)
+        puts "Ignoring timeout_seconds because the timeout command is not available." unless (@timeout_command = which('timeout'))
+        @timeout_seconds = timeout_seconds
+      end
 
       ensure_soffice_exists
     end
@@ -49,7 +55,7 @@ module Libreconv
 
       Dir.mktmpdir do |target_path|
         command = build_command(tmp_pipe_path, target_path)
-        puts command
+        puts "CMD:#{command.join(" ")}"
         target_tmp_file = execute_command(command, target_path)
 
         FileUtils.cp target_tmp_file, @target
@@ -58,7 +64,7 @@ module Libreconv
       FileUtils.rm_rf tmp_pipe_path if File.exist?(tmp_pipe_path)
     end
 
-    
+
     # @param [Array<String>] command
     # @param [String] target_path
     # @return [String]
@@ -87,15 +93,21 @@ module Libreconv
     # @param [String] target_path
     # @return [Array<String>]
     def build_command(tmp_pipe_path, target_path)
-      [
-        soffice_command,
-        "--accept=\"pipe,name=#{File.basename(tmp_pipe_path)};url;StarOffice.ServiceManager\"",
-        "-env:UserInstallation=#{build_file_uri(tmp_pipe_path)}",
-        '--headless',
-        '--convert-to', @convert_to,
-        escaped_source,
-        '--outdir', target_path
-      ]
+      command_parts =
+        [
+          soffice_command,
+          "--accept=\"pipe,name=#{File.basename(tmp_pipe_path)};url;StarOffice.ServiceManager\"",
+          "-env:UserInstallation=#{build_file_uri(tmp_pipe_path)}",
+          '--headless',
+          '--convert-to', @convert_to,
+          escaped_source,
+          '--outdir', target_path
+        ]
+      if @timeout_command && @timeout_seconds
+        command_parts.unshift("#{@timeout_seconds}s")
+        command_parts.unshift(@timeout_command)
+      end
+      command_parts
     end
 
     # If the URL contains GET params, the '&' could break when being used as an argument to soffice.
